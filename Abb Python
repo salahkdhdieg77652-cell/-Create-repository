@@ -1,1 +1,30 @@
-0554356799
+
+print("🌸 سلام! أنا Lina 🤖")
+print("قبل ما نهدر معاك، لازم نتأكد شكون نتا.")
+
+name = input("👤 شكون نتا؟ ")
+
+if name.strip().lower() == "برهوم":
+    print("❤️ أهلاً برهوم! عرفتك 😄")
+    print("أنا Lina، نقدر نهدر معاك ونعاونك ونضحك معاك 😂")
+    
+    while True:
+        message = input("\n💬 برهوم: ")
+
+        if message.lower() in ["خروج", "exit", "quit"]:
+            print("🌸 باي برهوم! نتهلاو في روحك ❤️")
+            break
+
+        if "سلام" in message:
+            print("Lina: وعليكم السلام يا برهوم 😄🌸")
+        elif "كيف حالك" in message or "واش حوالك" in message:
+            print("Lina: لاباس عليا، خاصة كي جيت تهدر معايا 😂❤️")
+        elif "نكتة" in message or "نكت" in message:
+            print("Lina: واحد راح للطبيب وقالو: دكتور، ننسى بزاف! قالو الطبيب: من إمتى؟ قالو: من إمتى واش؟ 😂")
+        elif "شكون نتي" in message or "من انتي" in message:
+            print("Lina: أنا Lina 🤖🌸 صديقتك الافتراضية، وما نحبش الملل 😄")
+        else:
+            print("Lina: فهمتك يا برهوم 😄 بصح مازال نتعلم باش نجاوبك على كل حاجة.")
+
+else:
+    print("🔒 سمحلي، ما نقدرش نهدر معاك. لازم نتأكد من هوية صاحبي.")
