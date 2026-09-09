@@ -1,48 +1,411 @@
 
-import pyttsx3
+# ============================================================
+# ABB - المساعدة الصوتية
+# Voice Assistant | Arabic / Algerian Darija
+# ============================================================
 
+import datetime
+import time
+import webbrowser
+import random
+import os
+import sys
+
+try:
+    import speech_recognition as sr
+except ImportError:
+    sr = None
+
+try:
+    import pyttsx3
+except ImportError:
+    pyttsx3 = None
+
+
+# ------------------------------------------------------------
+# الإعدادات
+# ------------------------------------------------------------
+
+ASSISTANT_NAME = "عب"
+WAKE_WORDS = ["عب", "آب", "abb", "اب"]
+
+STOP_WORDS = [
+    "تسكوة",
+    "اسكتي",
+    "اسكت",
+    "حبسي",
+    "سكات",
+    "اسكتي عب"
+]
+
+EXIT_WORDS = [
+    "خلاص",
+    "روحي",
+    "باي",
+    "مع السلامة",
+    "اغلقي",
+    "اخرجي"
+]
+
+
+# ------------------------------------------------------------
 # تشغيل الصوت
-engine = pyttsx3.init()
-engine.setProperty("rate", 165)
+# ------------------------------------------------------------
 
-name = "برهوم"
+engine = None
+
+if pyttsx3:
+    try:
+        engine = pyttsx3.init()
+
+        # سرعة الكلام
+        engine.setProperty("rate", 165)
+
+        # مستوى الصوت
+        engine.setProperty("volume", 1.0)
+
+        # اختيار صوت مناسب إن وجد
+        voices = engine.getProperty("voices")
+
+        if voices:
+            for voice in voices:
+                name = str(getattr(voice, "name", "")).lower()
+                lang = str(getattr(voice, "languages", "")).lower()
+
+                if "arab" in name or "arab" in lang:
+                    engine.setProperty("voice", voice.id)
+                    break
+
+    except Exception:
+        engine = None
+
 
 def speak(text):
-    print("Abb:", text)
-    engine.say(text)
-    engine.runAndWait()
+    """
+    تحويل النص إلى كلام.
+    """
 
-def abb():
-    speak(f"سلام {name} ❤️ أنا Abb، صاحبتك الافتراضية.")
-    speak("نهدر معاك بالدارجة الجزائرية ونسمعلك ونعاونك.")
+    print(f"\n{ASSISTANT_NAME}: {text}")
 
-    while True:
-        try:
-            user = input(f"{name}: ")
+    if engine is None:
+        return
 
-            if user.lower() in ["خروج", "اخرجي", "bye", "exit"]:
-                speak("باي برهوم ❤️ ربي يحفظك.")
-                break
+    try:
+        engine.say(text)
+        engine.runAndWait()
+    except Exception as error:
+        print("Voice error:", error)
 
-            if "تسكوت" in user or "اسكتي" in user:
-                continue
 
-            if "سلام" in user:
-                speak("وعليكم السلام يا برهوم 😄 واش حوالك؟")
+# ------------------------------------------------------------
+# الاستماع
+# ------------------------------------------------------------
 
-            elif "شكون نتي" in user or "من انتي" in user:
-                speak("أنا Abb، المساعدة الافتراضية تاعك ❤️")
+recognizer = sr.Recognizer() if sr else None
 
-            elif "نحبك" in user:
-                speak("هههه وأنا نحب نعاونك ونكون معاك بالكلمة الزينة ❤️")
 
-            elif "كيفاش راكي" in user:
-                speak("راني مليحة مادام راني نهدر معاك 😄")
+def listen(timeout=5, phrase_time_limit=8):
+    """
+    يسمع كلام المستخدم ويحوله إلى نص.
+    """
 
-            else:
-                speak("سمعتك يا برهوم ❤️ احكيلي أكثر، راني نسمعلك.")
+    if recognizer is None:
+        print("مكتبة speech_recognition غير مثبتة.")
+        return ""
 
-        except KeyboardInterrupt:
-            break
+    try:
+        with sr.Microphone() as source:
 
-abb()
+            print("\n🎤 نسمع فيك...")
+
+            recognizer.adjust_for_ambient_noise(
+                source,
+                duration=0.5
+            )
+
+            audio = recognizer.listen(
+                source,
+                timeout=timeout,
+                phrase_time_limit=phrase_time_limit
+            )
+
+        print("🔄 نحاول نفهم...")
+
+        # Google Speech Recognition
+        text = recognizer.recognize_google(
+            audio,
+            language="ar-DZ"
+        )
+
+        text = text.lower().strip()
+
+        print("أنت:", text)
+
+        return text
+
+    except sr.WaitTimeoutError:
+        return ""
+
+    except sr.UnknownValueError:
+        print("ما فهمتش واش قلت.")
+        return ""
+
+    except sr.RequestError:
+        print("مشكل في خدمة التعرف على الصوت.")
+        return ""
+
+    except Exception as error:
+        print("Microphone error:", error)
+        return ""
+
+
+# ------------------------------------------------------------
+# الوقت والتاريخ
+# ------------------------------------------------------------
+
+def get_time():
+    now = datetime.datetime.now()
+
+    hour = now.strftime("%H")
+    minute = now.strftime("%M")
+
+    return f"الساعة راهي {hour}:{minute}"
+
+
+def get_date():
+    now = datetime.datetime.now()
+
+    days = [
+        "الاثنين",
+        "الثلاثاء",
+        "الأربعاء",
+        "الخميس",
+        "الجمعة",
+        "السبت",
+        "الأحد"
+    ]
+
+    months = [
+        "جانفي",
+        "فيفري",
+        "مارس",
+        "أفريل",
+        "ماي",
+        "جوان",
+        "جويلية",
+        "أوت",
+        "سبتمبر",
+        "أكتوبر",
+        "نوفمبر",
+        "ديسمبر"
+    ]
+
+    day_name = days[now.weekday()]
+    month_name = months[now.month - 1]
+
+    return (
+        f"اليوم {day_name}، "
+        f"{now.day} {month_name} {now.year}"
+    )
+
+
+# ------------------------------------------------------------
+# فتح المواقع
+# ------------------------------------------------------------
+
+def open_google():
+    speak("حاضر، نفتحلك غوغل.")
+    webbrowser.open("https://www.google.com")
+
+
+def open_youtube():
+    speak("حاضر، نفتحلك يوتيوب.")
+    webbrowser.open("https://www.youtube.com")
+
+
+def search_google(query):
+    if not query:
+        speak("واش حاب نبحثلك عليه؟")
+        return
+
+    speak(f"نقلبلك على {query}.")
+
+    url = (
+        "https://www.google.com/search?q="
+        + query.replace(" ", "+")
+    )
+
+    webbrowser.open(url)
+
+
+# ------------------------------------------------------------
+# ردود عشوائية
+# ------------------------------------------------------------
+
+GREETINGS = [
+    "وعليكم السلام خويا ❤️",
+    "أهلا برهوم، راني هنا.",
+    "وعليكم السلام، واش حوالك؟",
+    "أهلا خويا، قولّي واش تحتاج."
+]
+
+FUNNY = [
+    "ههههه ضحكتني 😂",
+    "يا خويا راك داير حالة اليوم 😂",
+    "هههه، هذي قوية.",
+    "واش هذا الكلام 😂"
+]
+
+LOVE = [
+    "أنا هنا باش نعاونك ❤️",
+    "ما تقلقش، راني معاك.",
+    "قولّي برك واش تحتاج.",
+    "راني نسمع فيك."
+]
+
+
+# ------------------------------------------------------------
+# معالجة الأوامر
+# ------------------------------------------------------------
+
+def process_command(command):
+
+    if not command:
+        return True
+
+    command = command.lower().strip()
+
+    # -------------------------
+    # السكوت
+    # -------------------------
+
+    for word in STOP_WORDS:
+        if word in command:
+            print("🔇 تم تفعيل وضع السكوت.")
+            return "SILENT"
+
+    # -------------------------
+    # الخروج
+    # -------------------------
+
+    for word in EXIT_WORDS:
+        if word in command:
+            speak("حاضر، نشوفك من بعد. سلام ❤️")
+            return False
+
+    # -------------------------
+    # السلام
+    # -------------------------
+
+    if (
+        "سلام" in command
+        or "السلام عليكم" in command
+    ):
+        speak(random.choice(GREETINGS))
+        return True
+
+    # -------------------------
+    # الاسم
+    # -------------------------
+
+    if (
+        "اسمك" in command
+        or "شكون نتي" in command
+        or "من انتي" in command
+    ):
+        speak(
+            "أنا عب، المساعدة الصوتية تاعك."
+        )
+        return True
+
+    # -------------------------
+    # الوقت
+    # -------------------------
+
+    if "الساعة" in command:
+        speak(get_time())
+        return True
+
+    # -------------------------
+    # التاريخ
+    # -------------------------
+
+    if (
+        "التاريخ" in command
+        or "اليوم شحال" in command
+    ):
+        speak(get_date())
+        return True
+
+    # -------------------------
+    # غوغل
+    # -------------------------
+
+    if (
+        "افتح غوغل" in command
+        or "افتح جوجل" in command
+    ):
+        open_google()
+        return True
+
+    # -------------------------
+    # يوتيوب
+    # -------------------------
+
+    if "افتح يوتيوب" in command:
+        open_youtube()
+        return True
+
+    # -------------------------
+    # البحث
+    # -------------------------
+
+    if command.startswith("ابحث عن"):
+        query = command.replace(
+            "ابحث عن",
+            "",
+            1
+        ).strip()
+
+        search_google(query)
+        return True
+
+    if command.startswith("قلب على"):
+        query = command.replace(
+            "قلب على",
+            "",
+            1
+        ).strip()
+
+        search_google(query)
+        return True
+
+    # -------------------------
+    # المزاح
+    # -------------------------
+
+    if (
+        "نكتة" in command
+        or "نكت" in command
+        or "ضحكني" in command
+    ):
+        speak(random.choice(FUNNY))
+        return True
+
+    # -------------------------
+    # كلام لطيف
+    # -------------------------
+
+    if (
+        "نحبك" in command
+        or "نحماق عليك" in command
+    ):
+        speak(
+            "هههه شكرا خويا ❤️ "
+            "أنا هنا غير باش نعاونك ونونسّك."
+        )
+        return True
+
+    # -------------------------
+    # الحالة
+   
