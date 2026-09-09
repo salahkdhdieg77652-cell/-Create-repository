@@ -1,30 +1,48 @@
 
-print("🌸 سلام! أنا Lina 🤖")
-print("قبل ما نهدر معاك، لازم نتأكد شكون نتا.")
+import pyttsx3
 
-name = input("👤 شكون نتا؟ ")
+# تشغيل الصوت
+engine = pyttsx3.init()
+engine.setProperty("rate", 165)
 
-if name.strip().lower() == "برهوم":
-    print("❤️ أهلاً برهوم! عرفتك 😄")
-    print("أنا Lina، نقدر نهدر معاك ونعاونك ونضحك معاك 😂")
-    
+name = "برهوم"
+
+def speak(text):
+    print("Abb:", text)
+    engine.say(text)
+    engine.runAndWait()
+
+def abb():
+    speak(f"سلام {name} ❤️ أنا Abb، صاحبتك الافتراضية.")
+    speak("نهدر معاك بالدارجة الجزائرية ونسمعلك ونعاونك.")
+
     while True:
-        message = input("\n💬 برهوم: ")
+        try:
+            user = input(f"{name}: ")
 
-        if message.lower() in ["خروج", "exit", "quit"]:
-            print("🌸 باي برهوم! نتهلاو في روحك ❤️")
+            if user.lower() in ["خروج", "اخرجي", "bye", "exit"]:
+                speak("باي برهوم ❤️ ربي يحفظك.")
+                break
+
+            if "تسكوت" in user or "اسكتي" in user:
+                continue
+
+            if "سلام" in user:
+                speak("وعليكم السلام يا برهوم 😄 واش حوالك؟")
+
+            elif "شكون نتي" in user or "من انتي" in user:
+                speak("أنا Abb، المساعدة الافتراضية تاعك ❤️")
+
+            elif "نحبك" in user:
+                speak("هههه وأنا نحب نعاونك ونكون معاك بالكلمة الزينة ❤️")
+
+            elif "كيفاش راكي" in user:
+                speak("راني مليحة مادام راني نهدر معاك 😄")
+
+            else:
+                speak("سمعتك يا برهوم ❤️ احكيلي أكثر، راني نسمعلك.")
+
+        except KeyboardInterrupt:
             break
 
-        if "سلام" in message:
-            print("Lina: وعليكم السلام يا برهوم 😄🌸")
-        elif "كيف حالك" in message or "واش حوالك" in message:
-            print("Lina: لاباس عليا، خاصة كي جيت تهدر معايا 😂❤️")
-        elif "نكتة" in message or "نكت" in message:
-            print("Lina: واحد راح للطبيب وقالو: دكتور، ننسى بزاف! قالو الطبيب: من إمتى؟ قالو: من إمتى واش؟ 😂")
-        elif "شكون نتي" in message or "من انتي" in message:
-            print("Lina: أنا Lina 🤖🌸 صديقتك الافتراضية، وما نحبش الملل 😄")
-        else:
-            print("Lina: فهمتك يا برهوم 😄 بصح مازال نتعلم باش نجاوبك على كل حاجة.")
-
-else:
-    print("🔒 سمحلي، ما نقدرش نهدر معاك. لازم نتأكد من هوية صاحبي.")
+abb()
