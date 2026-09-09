@@ -1392,3 +1392,135 @@ def process_abb_command(command):
         return result
 
     return None
+# ============================================================
+# ABB - VOICE BACKGROUND MODE
+# التحكم الصوتي + الرد الصوتي عبر Termux:API
+# ============================================================
+
+import subprocess
+import os
+import time
+import json
+
+
+def abb_speak(text):
+    """ABB تهدر بصوت مسموع"""
+    try:
+        subprocess.run(
+            ["termux-tts-speak", "-l", "ar", "-r", "1.0", text],
+            check=False
+        )
+    except Exception as e:
+        print("خطأ في الصوت:", e)
+
+
+def abb_listen():
+    """ABB تسمع من الميكروفون"""
+    try:
+        result = subprocess.run(
+            ["termux-speech-to-text"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        command = result.stdout.strip()
+
+        if command:
+            print("🎤 أنت:", command)
+            return command.lower()
+
+    except Exception as e:
+        print("خطأ في الميكروفون:", e)
+
+    return ""
+
+
+def abb_background_command(command):
+    """أوامر ABB الصوتية الأساسية"""
+
+    command = command.lower().strip()
+
+    # إيقاف المساعد
+    if any(x in command for x in [
+        "حبسي", "توقفي", "اسكتي", "وقف", "خلاص"
+    ]):
+        abb_speak("حاضر، نوقف هنا.")
+        return False
+
+    # تحية
+    if any(x in command for x in [
+        "سلام", "سلام عليكم", "صباح الخير", "مساء الخير"
+    ]):
+        abb_speak("وعليكم السلام، راني هنا معاك.")
+        return True
+
+    # الوقت
+    if "الوقت" in command or "ساعة" in command:
+        now = time.strftime("%H:%M")
+        abb_speak(f"الوقت دروك هو {now}.")
+        return True
+
+    # فتح يوتيوب
+    if "افتح يوتيوب" in command:
+        abb_speak("نفتحلك يوتيوب.")
+        subprocess.run(
+            ["am", "start", "-a", "android.intent.action.VIEW",
+             "-d", "https://youtube.com"],
+            check=False
+        )
+        return True
+
+    # فتح جوجل
+    if "افتح جوجل" in command:
+        abb_speak("نفتحلك جوجل.")
+        subprocess.run(
+            ["am", "start", "-a", "android.intent.action.VIEW",
+             "-d", "https://google.com"],
+            check=False
+        )
+        return True
+
+    # إذا ماكانش أمر معروف
+    abb_speak("سمعتك، بصح ما فهمتش الأمر. عاود قوليه.")
+    return True
+
+
+def abb_voice_background():
+    """تشغيل ABB في وضع المحادثة الصوتية"""
+
+    abb_speak("ABB راهي خدامة. احكي معايا.")
+
+    running = True
+
+    while running:
+
+        command = abb_listen()
+
+        if not command:
+            time.sleep(1)
+            continue
+
+        # معالجة أوامر الخلفية
+        running = abb_background_command(command)
+
+        # إذا عندك المعالج الرئيسي القديم
+        if running:
+            try:
+                result = process_abb_command(command)
+
+                if result:
+                    abb_speak(str(result))
+
+            except NameError:
+                pass
+
+        time.sleep(0.5)
+
+
+# ============================================================
+# تشغيل ABB
+# ============================================================
+
+if __name__ == "__main__":
+    abb_voice_background()
