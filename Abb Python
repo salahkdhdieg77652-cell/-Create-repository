@@ -1017,3 +1017,33 @@ def process_abb_command(command):
         return result
 
     return None
+# ============================================================
+# ABB - SMART COMMANDS V3 CONNECTOR
+# ربط الأوامر الإضافية بالمساعد الرئيسي
+# ============================================================
+
+def process_abb_command(command):
+    """المعالج الرئيسي لأوامر ABB"""
+
+    # جرّب أوامر SMART V2
+    try:
+        result = abb_smart_command(command)
+        if result:
+            return result
+    except NameError:
+        pass
+    except Exception:
+        pass
+
+    # جرّب أوامر SMART V3
+    try:
+        result = abb_extra_command(command)
+        if result:
+            return result
+    except NameError:
+        pass
+    except Exception:
+        pass
+
+    # ما لقا حتى أمر
+    return None
