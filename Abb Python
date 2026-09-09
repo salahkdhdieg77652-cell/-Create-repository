@@ -703,3 +703,177 @@ def abb_smart_loop():
 # ما تشغلش abb_smart_loop() إذا عندك main() أصلاً.
 # اربط abb_smart_command(command) داخل الحلقة الموجودة عندك.
 # ============================================================
+# ============================================================
+# ABB - SMART COMMANDS V3
+# إضافات ذكية جديدة
+# ============================================================
+
+import re
+import ast
+import operator
+
+
+# ------------------------------------------------------------
+# مواقع إضافية
+# ------------------------------------------------------------
+ABB_MORE_WEBSITES = {
+    "واتساب": "https://web.whatsapp.com",
+    "whatsapp": "https://web.whatsapp.com",
+    "تلغرام": "https://web.telegram.org",
+    "telegram": "https://web.telegram.org",
+    "جيمايل": "https://mail.google.com",
+    "gmail": "https://mail.google.com",
+    "github": "https://github.com",
+    "غيت هاب": "https://github.com",
+    "chatgpt": "https://chatgpt.com",
+    "شات جي بي تي": "https://chatgpt.com",
+}
+
+
+# ------------------------------------------------------------
+# نكت وحكم
+# ------------------------------------------------------------
+ABB_JOKES = [
+    "واحد راح للطبيب قالو: كل ما نشرب قهوة توجعني عيني، قالو الطبيب: نحي الملعقة من الكاس 😂",
+    "واحد سأل صاحبو: علاش الكمبيوتر بردان؟ قالو: خاطر فاتح Windows 😂",
+    "مرة واحد بخيل مات، كتبوا على قبره: جاري البحث عن حل أرخص 😂"
+]
+
+ABB_QUOTES = [
+    "ما تستسلمش، كل خطوة صغيرة تقربك لهدفك 💪",
+    "النجاح ما يجيش في نهار، يجي مع الاستمرار 🔥",
+    "خدم على روحك اليوم، وغدوة تشكر نفسك ❤️",
+    "الغلط ماشي نهاية، الغلط درس."
+]
+
+
+# ------------------------------------------------------------
+# حساب آمن للعمليات البسيطة
+# ------------------------------------------------------------
+def abb_calculate(expression):
+    """حساب عمليات رياضية بسيطة بدون تنفيذ كود خطير."""
+
+    allowed_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Pow: operator.pow,
+        ast.Mod: operator.mod,
+        ast.USub: operator.neg,
+    }
+
+    def evaluate(node):
+        if isinstance(node, ast.Expression):
+            return evaluate(node.body)
+
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return node.value
+            raise ValueError
+
+        if isinstance(node, ast.BinOp):
+            op = allowed_operators.get(type(node.op))
+            if not op:
+                raise ValueError
+            return op(evaluate(node.left), evaluate(node.right))
+
+        if isinstance(node, ast.UnaryOp):
+            op = allowed_operators.get(type(node.op))
+            if not op:
+                raise ValueError
+            return op(evaluate(node.operand))
+
+        raise ValueError
+
+    tree = ast.parse(expression, mode="eval")
+    return evaluate(tree)
+
+
+# ------------------------------------------------------------
+# التطوير الجديد
+# ------------------------------------------------------------
+def abb_extra_command(command):
+
+    command = command.lower().strip()
+
+    # فتح المواقع الإضافية
+    for name, url in ABB_MORE_WEBSITES.items():
+        if name in command:
+            webbrowser.open(url)
+            return f"حاضر، فتحتلك {name} 🌐"
+
+    # بحث يوتيوب
+    youtube_words = [
+        "ابحث في يوتيوب عن ",
+        "قلب في يوتيوب على ",
+        "شغللي في يوتيوب ",
+        "يوتيوب على "
+    ]
+
+    for word in youtube_words:
+        if command.startswith(word):
+            query = command[len(word):].strip()
+
+            if query:
+                url = (
+                    "https://www.youtube.com/results?search_query="
+                    + urllib.parse.quote(query)
+                )
+
+                webbrowser.open(url)
+                return f"حاضر، قلبتلك في يوتيوب على {query} 🎵"
+
+    # نكتة
+    if any(x in command for x in [
+        "نكتة", "نكتلي", "ضحكني", "قولي نكتة"
+    ]):
+        return random.choice(ABB_JOKES)
+
+    # تحفيز
+    if any(x in command for x in [
+        "حفزني", "شجعني", "نحتاج تحفيز",
+        "قولي كلمة", "كلمة تحفيزية"
+    ]):
+        return random.choice(ABB_QUOTES)
+
+    # الحساب
+    if command.startswith(("احسب ", "حسبلي ", "احسبلي ")):
+        expression = re.sub(
+            r"^(احسبلي|احسب|حسبلي)\s+",
+            "",
+            command
+        ).strip()
+
+        # تحويل بعض الرموز العربية
+        expression = expression.replace("×", "*")
+        expression = expression.replace("÷", "/")
+
+        try:
+            result = abb_calculate(expression)
+            return f"النتيجة هي: {result}"
+        except Exception:
+            return "ما قدرتش نحسبها 😅 عطيني العملية بطريقة واضحة، مثال: احسب 25 * 4"
+
+    # معلومات عن ABB
+    if any(x in command for x in [
+        "واش تقدري", "وش تقدري", "شنو تقدري",
+        "ماذا تستطيعين", "الأوامر"
+    ]):
+        return (
+            "نقدر نعاونك في الوقت والتاريخ، فتح المواقع، "
+            "البحث في غوغل ويوتيوب، الحساب، النكت، "
+            "التحفيز، وأوامر أخرى 🔥"
+        )
+
+    return None
+
+
+# ============================================================
+# دمج V3 مع V2
+# ============================================================
+
+_old_abb_smart_command = abb_smart_command
+
+
+def abb_smart_command
