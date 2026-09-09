@@ -1,4 +1,123 @@
+    # -------------------------
+    # الحالة
+    # -------------------------
 
+    if (
+        "لاباس" in command
+        or "راك لاباس" in command
+        or "واش حوالك" in command
+    ):
+        speak("الحمد لله، راني لاباس مادام راني نسمع فيك ❤️")
+        return True
+
+    # -------------------------
+    # المساعدة
+    # -------------------------
+
+    if (
+        "واش تقدري" in command
+        or "واش تعرفي" in command
+        or "ساعديني" in command
+        or "المساعدة" in command
+    ):
+        speak(
+            "نقدر نسمعلك، نعطيك الوقت والتاريخ، "
+            "نفتحلك غوغل ويوتيوب، نقلبلك على واش تحب، "
+            "ونبقى معاك بالصوت."
+        )
+        return True
+
+    # -------------------------
+    # أمر غير معروف
+    # -------------------------
+
+    speak(
+        "ما فهمتش مليح واش حبيت تقول. "
+        "عاودها بطريقة أخرى خويا."
+    )
+
+    return True
+
+
+# ============================================================
+# الحلقة الرئيسية
+# ============================================================
+
+def main():
+
+    print("=" * 60)
+    print("ABB - المساعدة الصوتية")
+    print("Arabic / Algerian Darija")
+    print("=" * 60)
+
+    if recognizer is None:
+        print("❌ speech_recognition ما راهيش مثبتة.")
+        return
+
+    if engine is None:
+        print("⚠️ الصوت غير متوفر، بصح التعرف على الكلام يخدم.")
+
+    speak("أهلا خويا، عب راهي هنا. قولّي واش تحتاج.")
+
+    silent_mode = False
+
+    while True:
+
+        try:
+            command = listen(
+                timeout=5,
+                phrase_time_limit=8
+            )
+
+            if not command:
+                continue
+
+            # وضع السكوت
+            if silent_mode:
+
+                # نرجعو للخدمة إذا ناداه بالاسم
+                if any(
+                    word in command
+                    for word in WAKE_WORDS
+                ):
+                    silent_mode = False
+                    speak("رجعت نسمعلك خويا ❤️")
+
+                # الخروج حتى في وضع السكوت
+                elif any(
+                    word in command
+                    for word in EXIT_WORDS
+                ):
+                    print("ABB: تم إيقاف المساعدة.")
+                    break
+
+                continue
+
+            # معالجة الأمر
+            result = process_command(command)
+
+            if result == "SILENT":
+                silent_mode = True
+                continue
+
+            if result is False:
+                break
+
+        except KeyboardInterrupt:
+            print("\nتم إيقاف ABB.")
+            break
+
+        except Exception as error:
+            print("Main error:", error)
+            time.sleep(1)
+
+
+# ============================================================
+# تشغيل ABB
+# ============================================================
+
+if __name__ == "__main__":
+    main()
 # ============================================================
 # ABB - المساعدة الصوتية
 # Voice Assistant | Arabic / Algerian Darija
