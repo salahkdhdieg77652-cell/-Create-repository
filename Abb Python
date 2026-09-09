@@ -997,3 +997,23 @@ def abb_extra_command(command):
         return random.choice(jokes)
 
     return None
+# ============================================================
+# ABB - SMART COMMANDS V3 CONNECTOR
+# ربط الأوامر الإضافية بالمساعد الرئيسي
+# ============================================================
+
+def process_abb_command(command):
+    # جرّب الأوامر الأساسية إذا كانت موجودة
+    try:
+        result = abb_smart_command(command)
+        if result:
+            return result
+    except NameError:
+        pass
+
+    # جرّب أوامر V3
+    result = abb_extra_command(command)
+    if result:
+        return result
+
+    return None
