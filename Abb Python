@@ -1267,3 +1267,128 @@ def process_abb_v4(command):
         return f"صار خطأ في ABB V4: {e}"
 
     return None
+# ============================================================
+# ABB V4 - PHONE COMMANDS
+# مكالمات + رسائل + نسخ النص
+# ============================================================
+
+import subprocess
+import json
+import os
+
+
+def abb_phone_command(command):
+    command = command.lower().strip()
+
+    # --------------------------------------------------------
+    # آخر مكالمة
+    # --------------------------------------------------------
+    if any(x in command for x in [
+        "شكون عيطلي",
+        "شكون اتصل بيا",
+        "آخر مكالمة",
+        "المكالمة الأخيرة",
+        "من اتصل بي"
+    ]):
+        try:
+            result = subprocess.run(
+                ["termux-call-log", "-l", "1"],
+                capture_output=True,
+                text=True
+            )
+
+            data = json.loads(result.stdout)
+
+            if data:
+                call = data[0]
+                name = call.get("name") or call.get("number", "رقم مجهول")
+                return f"آخر مكالمة كانت من {name}"
+            return "ما لقيتش مكالمات."
+
+        except Exception:
+            return "ما قدرتش نوصل لسجل المكالمات. تأكد من الصلاحيات."
+
+    # --------------------------------------------------------
+    # آخر رسالة SMS
+    # --------------------------------------------------------
+    if any(x in command for x in [
+        "شكون بعتلي رسالة",
+        "آخر رسالة",
+        "اقرالي الرسالة",
+        "اقرا الرسالة",
+        "الرسالة الأخيرة",
+        "وش بعتولي"
+    ]):
+        try:
+            result = subprocess.run(
+                ["termux-sms-list", "-l", "1"],
+                capture_output=True,
+                text=True
+            )
+
+            data = json.loads(result.stdout)
+
+            if data:
+                sms = data[0]
+                sender = sms.get("sender", "مرسل مجهول")
+                body = sms.get("body", "")
+
+                if body:
+                    return f"الرسالة من {sender}: {body}"
+
+                return f"عندك رسالة من {sender} بصح ما قدرتش نقرا محتواها."
+
+            return "ما لقيتش رسائل."
+
+        except Exception:
+            return "ما قدرتش نوصل للرسائل. تأكد من صلاحيات SMS."
+
+    # --------------------------------------------------------
+    # نسخ نص للحافظة
+    # مثال: كوبي السلام عليكم
+    # --------------------------------------------------------
+    if command.startswith("كوبي "):
+        text = command[5:].strip()
+
+        if text:
+            try:
+                subprocess.run(
+                    ["termux-clipboard-set"],
+                    input=text,
+                    text=True
+                )
+                return "نسختها للحافظة."
+
+            except Exception:
+                return "ما قدرتش ننسخ النص."
+
+    return None
+
+
+# ============================================================
+# ربط V4 مع النظام الرئيسي
+# ============================================================
+
+def process_abb_command(command):
+    # V1 / V2
+    try:
+        result = abb_smart_command(command)
+        if result:
+            return result
+    except NameError:
+        pass
+
+    # V3
+    try:
+        result = abb_extra_command(command)
+        if result:
+            return result
+    except NameError:
+        pass
+
+    # V4 - الهاتف
+    result = abb_phone_command(command)
+    if result:
+        return result
+
+    return None
