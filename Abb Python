@@ -1,89 +1,1061 @@
 # ============================================================
-# ABB - ASSISTANT V1
-# مساعد صوتي جزائري - ملف واحد
+# ABB V5 - SMART ALGERIAN VOICE ASSISTANT
+# ملف واحد - نسخة أساسية قابلة للتوسعة
 # ============================================================
 
 import datetime
 import random
 import webbrowser
 import urllib.parse
-import subprocess
 import os
+import subprocess
 import time
+import json
+import re
 
 # ============================================================
 # الإعدادات
 # ============================================================
 
-NAME = "ABB"
+APP_NAME = "ABB"
+
+MEMORY_FILE = "abb_memory.json"
+HISTORY_FILE = "abb_history.json"
 
 # ============================================================
-# الكلام
+# أدوات عامة
 # ============================================================
+
+def now():
+    return datetime.datetime.now()
+
+
+def save_json(filename, data):
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def load_json(filename, default):
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+memory = load_json(MEMORY_FILE, {})
+history = load_json(HISTORY_FILE, [])
+
 
 def speak(text):
-    print(f"\n{NAME}: {text}")
+    """نطق النص إذا كان Termux:API مثبتًا، وإلا يطبعه فقط."""
+    print(f"\n{APP_NAME}: {text}")
 
     try:
         subprocess.run(
-            ["termux-tts-speak", "-l", "ar", "-r", "0.9", text],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            ["termux-tts-speak", "-l", "ar", "-r", "0.95", text],
+            timeout=10
         )
     except Exception:
         pass
+
+
+def listen():
+    """
+    في Termux يستعمل termux-speech-to-text.
+    إذا لم يكن متوفرًا، يسمح بالكتابة من الكيبورد.
+    """
+
+    try:
+        result = subprocess.run(
+            ["termux-speech-to-text"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        text = result.stdout.strip()
+
+        if text:
+            print("أنت:", text)
+            return text.lower().strip()
+
+    except Exception:
+        pass
+
+    try:
+        return input("\nأنت: ").lower().strip()
+    except KeyboardInterrupt:
+        return "خروج"
+
+
+# ============================================================
+# الذاكرة
+# ============================================================
+
+def remember(command):
+    global memory
+
+    match = re.search(
+        r"(?:تذكر|احفظ|خلي في بالك)\s+(.+)",
+        command
+    )
+
+    if match:
+        value = match.group(1).strip()
+
+        if value:
+            memory[str(len(memory) + 1)] = value
+            save_json(MEMORY_FILE, memory)
+
+            speak("حفظتها في الذاكرة.")
+            return True
+
+    return False
+
+
+def show_memory():
+    if not memory:
+        speak("مازال ما عنديش معلومات محفوظة.")
+        return True
+
+    speak("هاذي المعلومات لي حافظهم:")
+
+    for key, value in memory.items():
+        print(f"{key}. {value}")
+
+    return True
+
+
+def clear_memory():
+    global memory
+
+    memory = {}
+    save_json(MEMORY_FILE, memory)
+
+    speak("مسحت الذاكرة.")
+    return True
+
+
+# ============================================================
+# سجل الأوامر
+# ============================================================
+
+def add_history(command):
+    global history
+
+    history.append({
+        "command": command,
+        "time": now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
+    history = history[-100:]
+
+    save_json(HISTORY_FILE, history)
+
+
+def show_history():
+    if not history:
+        speak("مازال ما كاش سجل.")
+        return True
+
+    speak("آخر الأوامر:")
+
+    for item in history[-10:]:
+        print(
+            f"- {item['time']} | {item['command']}"
+        )
+
+    return True
+
+
+# ============================================================
+# الوقت والتاريخ
+# ============================================================
+
+def time_command(command):
+
+    if any(x in command for x in [
+        "الساعة",
+        "شحال الساعة",
+        "وقتاش",
+        "الوقت"
+    ]):
+        current = now().strftime("%H:%M")
+        speak(f"الساعة دوكا {current}.")
+        return True
+
+    if any(x in command for x in [
+        "التاريخ",
+        "نهار اليوم",
+        "اليوم واش من نهار",
+        "واش هو التاريخ"
+    ]):
+
+        days = [
+            "الاثنين",
+            "الثلاثاء",
+            "الأربعاء",
+            "الخميس",
+            "الجمعة",
+            "السبت",
+            "الأحد"
+        ]
+
+        months = [
+            "جانفي",
+            "فيفري",
+            "مارس",
+            "أفريل",
+            "ماي",
+            "جوان",
+            "جويلية",
+            "أوت",
+            "سبتمبر",
+            "أكتوبر",
+            "نوفمبر",
+            "ديسمبر"
+        ]
+
+        n = now()
+
+        speak(
+            f"اليوم {days[n.weekday()]} "
+            f"{n.day} {months[n.month - 1]} "
+            f"{n.year}."
+        )
+
+        return True
+
+    return False
+
+
+# ============================================================
+# التحيات والحالة
+# ============================================================
+
+def greeting_command(command):
+
+    greetings = [
+        "وعليكم السلام ❤️",
+        "أهلا بيك!",
+        "مرحبا خويا 😎",
+        "نورت ABB 🔥",
+        "أهلا وسهلا!"
+    ]
+
+    if any(x in command for x in [
+        "سلام",
+        "السلام عليكم",
+        "صباح الخير",
+        "مساء الخير",
+        "اهلا",
+        "مرحبا"
+    ]):
+
+        speak(random.choice(greetings))
+        return True
+
+    if any(x in command for x in [
+        "لاباس",
+        "راك لاباس",
+        "واش حوالك",
+        "كيف حالك"
+    ]):
+
+        speak(
+            "الحمد لله، راني لاباس مادام راني نسمع فيك ❤️"
+        )
+        return True
+
+    return False
+
+
+# ============================================================
+# معلومات ABB
+# ============================================================
+
+def assistant_info(command):
+
+    if any(x in command for x in [
+        "شكون نتا",
+        "شكون نتي",
+        "واش اسمك",
+        "اسمك"
+    ]):
+
+        speak(
+            "أنا ABB، مساعد صوتي تقدر تطورني وتزيدلي أوامر جديدة."
+        )
+        return True
+
+    if any(x in command for x in [
+        "واش تقدري",
+        "واش تقدر",
+        "وش تقدر",
+        "المساعدة",
+        "help"
+    ]):
+
+        speak(
+            "نقدر نعاونك في الوقت والتاريخ، "
+            "فتح المواقع، البحث، الذاكرة، "
+            "السجل، وبعض أوامر الهاتف وTermux."
+        )
+
+        return True
+
+    return False
 
 
 # ============================================================
 # فتح المواقع
 # ============================================================
 
-def open_url(url):
-    try:
-        webbrowser.open(url)
-        return True
-    except Exception:
-        return False
+def open_website(command):
+
+    sites = {
+        "يوتيوب": "https://www.youtube.com",
+        "youtube": "https://www.youtube.com",
+        "غوغل": "https://www.google.com",
+        "جوجل": "https://www.google.com",
+        "google": "https://www.google.com",
+        "فيسبوك": "https://www.facebook.com",
+        "facebook": "https://www.facebook.com",
+        "انستغرام": "https://www.instagram.com",
+        "instagram": "https://www.instagram.com",
+        "تيك توك": "https://www.tiktok.com",
+        "tiktok": "https://www.tiktok.com",
+        "واتساب": "https://web.whatsapp.com",
+        "github": "https://github.com"
+    }
+
+    for name, url in sites.items():
+
+        if name in command and any(
+            x in command
+            for x in ["افتح", "حل", "روح", "دخل"]
+        ):
+
+            speak(f"نفتحلك {name}.")
+            webbrowser.open(url)
+
+            return True
+
+    return False
 
 
 # ============================================================
-# البحث في Google
+# البحث في الإنترنت
 # ============================================================
 
-def google_search(text):
-    query = urllib.parse.quote(text)
-    open_url("https://www.google.com/search?q=" + query)
+def search_command(command):
+
+    triggers = [
+        "ابحث عن",
+        "قلب على",
+        "قلبلي على",
+        "فتش على",
+        "ابحثلي على",
+        "search"
+    ]
+
+    for trigger in triggers:
+
+        if trigger in command:
+
+            query = command.split(
+                trigger,
+                1
+            )[1].strip()
+
+            if not query:
+                speak("قولّي واش نبحثلك عليه.")
+                return True
+
+            encoded = urllib.parse.quote_plus(query)
+
+            url = (
+                "https://www.google.com/search?q="
+                + encoded
+            )
+
+            speak(f"نبحثلك على {query}.")
+            webbrowser.open(url)
+
+            return True
+
+    return False
 
 
 # ============================================================
 # يوتيوب
 # ============================================================
 
-def youtube_search(text):
-    query = urllib.parse.quote(text)
-    open_url("https://www.youtube.com/results?search_query=" + query)
+def youtube_search(command):
 
+    triggers = [
+        "شغل",
+        "شغلي",
+        "شغللي",
+        "سمعني",
+        "حطلي"
+    ]
 
-# ============================================================
-# معالجة الأوامر
-# ============================================================
+    music_words = [
+        "اغنية",
+        "أغنية",
+        "موسيقى",
+        "فيديو",
+        "نشيد",
+        "music"
+    ]
 
-def process_command(command):
+    if any(t in command for t in triggers) and \
+       any(w in command for w in music_words):
 
-    command = command.lower().strip()
+        query = command
 
-    if not command:
+        for word in triggers + music_words:
+            query = query.replace(word, "")
+
+        query = query.strip()
+
+        if not query:
+            speak("قولّي اسم الأغنية.")
+            return True
+
+        url = (
+            "https://www.youtube.com/results?search_query="
+            + urllib.parse.quote_plus(query)
+        )
+
+        speak(f"نقلبلك على {query} في يوتيوب.")
+        webbrowser.open(url)
+
         return True
 
-    # --------------------------------------------------------
-    # خروج
-    # --------------------------------------------------------
+    return False
+
+
+# ============================================================
+# فتح تطبيقات Android عبر Termux
+# ============================================================
+
+def android_app(command):
+
+    apps = {
+        "واتساب": "com.whatsapp",
+        "فيسبوك": "com.facebook.katana",
+        "انستغرام": "com.instagram.android",
+        "تيليغرام": "org.telegram.messenger",
+        "تيك توك": "com.zhiliaoapp.musically"
+    }
+
+    if not any(
+        x in command
+        for x in ["افتح", "حل"]
+    ):
+        return False
+
+    for name, package in apps.items():
+
+        if name in command:
+
+            try:
+                subprocess.run([
+                    "monkey",
+                    "-p",
+                    package,
+                    "1"
+                ])
+
+                speak(f"فتحتلك {name}.")
+                return True
+
+            except Exception:
+
+                speak(
+                    "ما قدرتش نفتح التطبيق من Termux."
+                )
+
+                return True
+
+    return False
+
+
+# ============================================================
+# البطارية
+# ============================================================
+
+def battery_command(command):
+
+    if "البطارية" not in command and \
+       "شحال البطارية" not in command:
+        return False
+
+    try:
+
+        result = subprocess.run(
+            ["termux-battery-status"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        data = json.loads(result.stdout)
+
+        percentage = data.get(
+            "percentage",
+            "غير معروف"
+        )
+
+        status = data.get(
+            "status",
+            "غير معروف"
+        )
+
+        speak(
+            fالبطارية راهي {percentage} بالمئة، "
+            f"والحالة {status}."
+        )
+
+    except Exception:
+
+        speak(
+            "ثبت Termux:API باش نقدر نجيب معلومات البطارية."
+        )
+
+    return True
+
+
+# ============================================================
+# الصوت
+# ============================================================
+
+def volume_command(command):
+
+    if any(x in command for x in [
+        "ارفع الصوت",
+        "طلع الصوت"
+    ]):
+
+        try:
+            subprocess.run([
+                "termux-volume",
+                "music",
+                "10"
+            ])
+            speak("طلعت الصوت.")
+        except Exception:
+            speak("أمر الصوت يحتاج Termux:API.")
+
+        return True
+
+    if any(x in command for x in [
+        "نقص الصوت",
+        "هبط الصوت"
+    ]):
+
+        try:
+            subprocess.run([
+                "termux-volume",
+                "music",
+                "2"
+            ])
+            speak("هبطت الصوت.")
+        except Exception:
+            speak("أمر الصوت يحتاج Termux:API.")
+
+        return True
+
+    return False
+
+
+# ============================================================
+# الكاميرا
+# ============================================================
+
+def camera_command(command):
+
+    if any(x in command for x in [
+        "صور",
+        "صوّر",
+        "الكاميرا"
+    ]):
+
+        try:
+
+            filename = (
+                "ABB_"
+                + now().strftime("%Y%m%d_%H%M%S")
+                + ".jpg"
+            )
+
+            subprocess.run([
+                "termux-camera-photo",
+                filename
+            ])
+
+            speak(
+                f"تصورت الصورة وخزنتها باسم {filename}."
+            )
+
+        except Exception:
+
+            speak(
+                "ثبت Termux:API واسمحله بالكاميرا."
+            )
+
+        return True
+
+    return False
+
+
+# ============================================================
+# إشعار
+# ============================================================
+
+def notification_command(command):
+
+    if "إشعار" in command or \
+       "اشعار" in command:
+
+        try:
+
+            subprocess.run([
+                "termux-notification",
+                "--title",
+                "ABB",
+                "--content",
+                "هذا إشعار من ABB."
+            ])
+
+            speak("درتلك إشعار.")
+
+        except Exception:
+
+            speak("هذا الأمر يحتاج Termux:API.")
+
+        return True
+
+    return False
+
+
+# ============================================================
+# معلومات الشبكة
+# ============================================================
+
+def wifi_command(command):
+
+    if any(x in command for x in [
+        "الواي فاي",
+        "الويفي",
+        "wifi",
+        "الانترنت"
+    ]):
+
+        try:
+
+            result = subprocess.run(
+                ["termux-wifi-connectioninfo"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            data = json.loads(result.stdout)
+
+            ssid = data.get(
+                "ssid",
+                "غير معروف"
+            )
+
+            ip = data.get(
+                "ip",
+                "غير معروف"
+            )
+
+            speak(
+                fالشبكة الحالية {ssid}، "
+                f"وعنوان الجهاز {ip}."
+            )
+
+        except Exception:
+
+            speak(
+                "ثبت Termux:API باش نجيب معلومات الواي فاي."
+            )
+
+        return True
+
+    return False
+
+
+# ============================================================
+# الحسابات البسيطة
+# ============================================================
+
+def calculator_command(command):
+
+    if not any(x in command for x in [
+        "احسب",
+        "حسبلي",
+        "احسبلي"
+    ]):
+        return False
+
+    expression = command
+
+    for word in [
+        "احسبلي",
+        "احسب",
+        "حسبلي"
+    ]:
+        expression = expression.replace(
+            word,
+            ""
+        )
+
+    expression = expression.strip()
+
+    expression = expression.replace(
+        "زائد",
+        "+"
+    )
+
+    expression = expression.replace(
+        "ناقص",
+        "-"
+    )
+
+    expression = expression.replace(
+        "ضرب",
+        "*"
+    )
+
+    expression = expression.replace(
+        "في",
+        "*"
+    )
+
+    expression = expression.replace(
+        "قسمة",
+        "/"
+    )
+
+    # السماح فقط بالأرقام والعمليات
+    if not re.fullmatch(
+        r"[0-9+\-*/(). ]+",
+        expression
+    ):
+        speak(
+            "نقدر نحسب العمليات الرياضية البسيطة فقط."
+        )
+        return True
+
+    try:
+
+        result = eval(
+            expression,
+            {"__builtins__": {}},
+            {}
+        )
+
+        speak(f"النتيجة هي {result}.")
+
+    except Exception:
+
+        speak("ما فهمتش العملية.")
+
+    return True
+
+
+# ============================================================
+# نكتة
+# ============================================================
+
+def joke_command(command):
+
+    if any(x in command for x in [
+        "نكتة",
+        "نكتة",
+        "ضحكني"
+    ]):
+
+        jokes = [
+            "واحد راح للطبيب قاله: كل ما نشرب قهوة توجعني عيني. قاله الطبيب: نحي الملعقة من الكاس.",
+            "واحد بخيل مات، دارو عليه جنازة بالتقسيط.",
+            "واحد سأل صاحبه: علاش راك تجري؟ قاله: عندي موعد مع الكسل وما نحبش نتأخر."
+        ]
+
+        speak(random.choice(jokes))
+        return True
+
+    return False
+
+
+# ============================================================
+# عشوائيات
+# ============================================================
+
+def random_command(command):
+
+    if "رقم عشوائي" in command:
+
+        match = re.search(
+            r"(\d+)\s*(?:الى|إلى|-)\s*(\d+)",
+            command
+        )
+
+        if match:
+
+            a = int(match.group(1))
+            b = int(match.group(2))
+
+            result = random.randint(
+                min(a, b),
+                max(a, b)
+            )
+
+            speak(
+                f"خرجلك الرقم {result}."
+            )
+
+        else:
+
+            speak(
+                f"الرقم العشوائي هو {random.randint(1, 100)}."
+            )
+
+        return True
+
+    return False
+
+
+# ============================================================
+# الانتظار
+# ============================================================
+
+def timer_command(command):
+
+    match = re.search(
+        r"(\d+)\s*(ثانية|ثواني|دقيقة|دقائق)",
+        command
+    )
+
+    if not match:
+        return False
+
+    amount = int(match.group(1))
+    unit = match.group(2)
+
+    seconds = amount
+
+    if "دقيقة" in unit:
+        seconds *= 60
+
+    speak(
+        f"بدأت المؤقت لمدة {amount} {unit}."
+    )
+
+    time.sleep(seconds)
+
+    speak("⏰ سالى الوقت!")
+
+    return True
+
+
+# ============================================================
+# إيقاف
+# ============================================================
+
+def exit_command(command):
 
     if any(x in command for x in [
         "خروج",
         "اخرج",
         "حبس",
         "حبسي",
-        "سلام",
-        "باي
+        "توقفي",
+        "باي",
+        "مع السلامة"
+    ]):
 
+        speak("مع السلامة خويا ❤️")
+        return "EXIT"
+
+    return False
+
+
+# ============================================================
+# الأوامر الرئيسية
+# ============================================================
+
+def process_abb_command(command):
+
+    if not command:
+        return False
+
+    # 1
+    result = exit_command(command)
+
+    if result == "EXIT":
+        return "EXIT"
+
+    # 2
+    if greeting_command(command):
+        return True
+
+    # 3
+    if assistant_info(command):
+        return True
+
+    # 4
+    if time_command(command):
+        return True
+
+    # 5
+    if remember(command):
+        return True
+
+    # 6
+    if "واش حافظ" in command or \
+       "المعلومات المحفوظة" in command:
+        return show_memory()
+
+    # 7
+    if "امسح الذاكرة" in command or \
+       "نسا كلش" in command:
+        return clear_memory()
+
+    # 8
+    if "السجل" in command or \
+       "آخر الأوامر" in command:
+        return show_history()
+
+    # 9
+    if open_website(command):
+        return True
+
+    # 10
+    if youtube_search(command):
+        return True
+
+    # 11
+    if search_command(command):
+        return True
+
+    # 12
+    if android_app(command):
+        return True
+
+    # 13
+    if battery_command(command):
+        return True
+
+    # 14
+    if volume_command(command):
+        return True
+
+    # 15
+    if camera_command(command):
+        return True
+
+    # 16
+    if notification_command(command):
+        return True
+
+    # 17
+    if wifi_command(command):
+        return True
+
+    # 18
+    if calculator_command(command):
+        return True
+
+    # 19
+    if joke_command(command):
+        return True
+
+    # 20
+    if random_command(command):
+        return True
+
+    # 21
+    if timer_command(command):
+        return True
+
+    return False
+
+
+# ============================================================
+# التشغيل
+# ============================================================
+
+def main():
+
+    speak(
+        "السلام عليكم! أنا ABB. "
+        "راني واجد للأوامر."
+    )
+
+    print("\n===================================")
+    print("       ABB V5 SMART ASSISTANT")
+    print("===================================")
+    print("اكتب أو تكلم بالأمر.")
+    print("قول: خروج  => إيقاف البرنامج")
+    print("===================================\n")
+
+    while True:
+
+        try:
+
+            command = listen()
+
+            if not command:
+                continue
+
+            add_history(command)
+
+            result = process_abb_command(
+                command
+            )
+
+            if result == "EXIT":
+                break
+
+            if not result:
+
+                speak(
+                    "ما فهمتش الأمر. "
+                    "قول المساعدة باش نوريك بعض الأوامر."
+                )
+
+        except KeyboardInterrupt:
+
+            speak("تم إيقاف ABB.")
+            break
+
+        except Exception as error:
+
+            print(
+                "ERROR:",
+                error
+            )
+
+            speak(
+                "صرالي خطأ بسيط، نعاود نحاول."
+            )
+
+
+# ============================================================
+# البداية
+# ============================================================
+
+if __name__ == "__main__":
+    main()
+        "
